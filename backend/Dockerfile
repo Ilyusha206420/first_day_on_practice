@@ -1,36 +1,31 @@
-FROM alpine:latest AS builder
+FROM ubuntu:24.04 AS builder
 
-RUN apk update && apk add --no-cache \
-  build-base \
+RUN apt-get update && apt-get install -y \
+  build-essential \
   cmake \
-  ninja \
+  git \
+  curl \
   zip \
   unzip \
-  curl \
-  git
+  tar \
+  pkg-config \
+  ninja-build
 
 ENV VCPKG_ROOT=/vcpkg
-ENV VCPKG_FORCE_SYSTEM_BINARIES=1
-ENV VCPKG_DEFAULT_TRIPLET=x64-linux
-
-RUN git clone https://github.com/microsoft/vcpkg.git ${VCPKG_ROOT} && \
-  cd ${VCPKG_ROOT} && \
+RUN git clone https://github.com/microsoft/vcpkg.git ${VCPKG_ROOT}
+RUN cd ${VCPKG_ROOT} && \
   ./bootstrap-vcpkg.sh
 
 WORKDIR /app
 
-ENV CMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake
+COPY . .
 
-COPY vcpkg.json CMakeLists.txt ./
 RUN cmake -G Ninja -B build -S . \
-  -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE} \
-  -DVCPKG_TARGET_TRIPLET=${VCPKG_DEFAULT_TRIPLET}
+  -DCMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake
 
-# COPY . .
+FROM ubuntu:24.04 AS runner
 
-# RUN cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
-# RUN cmake --build build
+WORKDIR /app
+COPY --from=builder /app .
 
-# WORKDIR /app
-
-# FROM alpine:latest
+CMD ["ls", "-la", "/app/build"]
